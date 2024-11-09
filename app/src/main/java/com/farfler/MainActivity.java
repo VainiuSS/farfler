@@ -2,6 +2,7 @@ package com.farfler;
 
 import android.os.Bundle;
 
+import com.farfler.service.ApiService;
 import com.google.android.material.snackbar.Snackbar;
 
 import androidx.annotation.Nullable;
@@ -73,6 +74,8 @@ public class MainActivity extends AppCompatActivity {
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.setLanguage(Locale.US);
+                ApiService apiService = new ApiService();
+                apiService.getTextFromApi("https://www.reddit.com/r/blind/top.json?t=month&limit=3&after=t3_1gkinlx");
                 parseAndSpeakJSON(jsonString);
             } else {
                 Toast.makeText(this, "TextToSpeech Initialization Failed", Toast.LENGTH_SHORT).show();
