@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
                 ExecutorService executorService = Executors.newSingleThreadExecutor();
                 executorService.execute(() -> {
                     ApiService apiService = new ApiService();
-                    redditPost redditPost = apiService.getTextFromApi("https://www.reddit.com/r/blind/top.json?t=month&limit=1");
+                    redditPost redditPost = apiService.getTextFromApi("https://www.reddit.com/r/blind/top.json?t=month&limit=10");
                     if (redditPost != null) {
                         String selftext = redditPost.getData().getChildren().get(0).getData().getSelftext();
                         runOnUiThread(() -> speakContent(selftext));
