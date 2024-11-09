@@ -4,8 +4,11 @@ import android.os.Bundle;
 
 import com.google.android.material.snackbar.Snackbar;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.speech.tts.TextToSpeech;
+import android.util.Log;
 import android.view.View;
 
 import androidx.navigation.NavController;
@@ -22,110 +25,102 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String API_URL = "https://www.reddit.com/r/redditdev/new.json?limit=3"; // Replace with your actual API URL
+    private TextToSpeech textToSpeech;
+
+    private final String jsonString = "{\n" +
+            "  \"kind\": \"Listing\",\n" +
+            "  \"data\": {\n" +
+            "    \"children\": [\n" +
+            "      {\n" +
+            "        \"kind\": \"t3\",\n" +
+            "        \"data\": {\n" +
+            "          \"title\": \"Created a web app to transfer subreddit subscriptions across accounts\",\n" +
+            "          \"author\": \"SubTransfer\",\n" +
+            "          \"selftext\": \"It's called SubTransfer and it's a very simple app to carry over your subscriptions...\"\n" +
+            "        }\n" +
+            "      },\n" +
+            "      {\n" +
+            "        \"kind\": \"t3\",\n" +
+            "        \"data\": {\n" +
+            "          \"title\": \"Inconsistency with unsaving using PRAW\",\n" +
+            "          \"author\": \"chaosboy229\",\n" +
+            "          \"selftext\": \"Hi peeps, I'm trying to unsave a large number of my Reddit posts using the PRAW...\"\n" +
+            "        }\n" +
+            "      }\n" +
+            "    ]\n" +
+            "  }\n" +
+            "}";
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // ExecutorService for running background tasks
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        executorService.execute(() -> fetchDataFromApi(API_URL));
+        // Initialize TextToSpeech
+        textToSpeech = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech.setLanguage(Locale.US);
+                parseAndSpeakJSON(jsonString);
+            } else {
+                Toast.makeText(this, "TextToSpeech Initialization Failed", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
-    private void fetchDataFromApi(String urlString) {
-        String result = "";
-        HttpURLConnection urlConnection = null;
-        BufferedReader reader = null;
-
+    // Parse JSON and speak the extracted content
+    private void parseAndSpeakJSON(String jsonString) {
         try {
-            // Create URL object
-            URL url = new URL(urlString);
+            JSONObject jsonObject = new JSONObject(jsonString);
+            JSONObject dataObject = jsonObject.getJSONObject("data");
+            JSONArray childrenArray = dataObject.getJSONArray("children");
 
-            // Open connection
-            urlConnection = (HttpURLConnection) url.openConnection();
-            urlConnection.setRequestMethod("GET");
-            urlConnection.setConnectTimeout(15000);  // 15 seconds timeout
-            urlConnection.setReadTimeout(15000);     // 15 seconds timeout
+            StringBuilder contentToSpeak = new StringBuilder();
+            for (int i = 0; i < childrenArray.length(); i++) {
+                JSONObject childObject = childrenArray.getJSONObject(i).getJSONObject("data");
 
-            // Connect to the API
-            urlConnection.connect();
+                // Extract title, author, and selftext
+                String title = childObject.optString("title", "No Title");
+                String author = childObject.optString("author", "Unknown Author");
+                String selftext = childObject.optString("selftext", "No content available");
 
-            // Read the response
-            InputStreamReader inputStreamReader = new InputStreamReader(urlConnection.getInputStream());
-            reader = new BufferedReader(inputStreamReader);
-            String line;
-            StringBuilder stringBuilder = new StringBuilder();
-
-            while ((line = reader.readLine()) != null) {
-                stringBuilder.append(line);
+                contentToSpeak.append("Post ").append(i + 1).append(": ")
+                        .append("Title: ").append(title).append(". ")
+                        .append("Author: ").append(author).append(". ")
+                        .append("Content: ").append(selftext).append(".\n\n");
             }
 
-            result = stringBuilder.toString();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (urlConnection != null) {
-                urlConnection.disconnect();
-            }
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
+            speakContent(contentToSpeak.toString());
+
+        } catch (JSONException e) {
+            Log.e("JSONError", "Failed to parse JSON", e);
+            Toast.makeText(this, "Failed to parse JSON", Toast.LENGTH_SHORT).show();
         }
-
-        // Once data is fetched, update the UI on the main thread
-        String finalResult = result;
-        runOnUiThread(() -> handleJsonResponse(finalResult));
     }
 
-    private void handleJsonResponse(String result) {
-        try {
-            // Parse the JSON response
-            JSONArray jsonArray = new JSONArray(result);
+    // Method to speak the content
+    private void speakContent(String content) {
+        textToSpeech.speak(content, TextToSpeech.QUEUE_FLUSH, null, "UniqueID");
+    }
 
-            // Find the layout where the buttons will be added
-            LinearLayout layout = findViewById(R.id.fab); // Make sure this layout exists in your XML
-            layout.removeAllViews(); // Remove any previous buttons
-
-            // Iterate over the JSON array and create buttons for each item
-            for (int i = 0; i < jsonArray.length(); i++) {
-                JSONObject jsonObject = jsonArray.getJSONObject(i);
-                String title = jsonObject.getString("title");
-                String text = jsonObject.getString("text");
-
-                // Create a button dynamically
-                Button button = new Button(MainActivity.this);
-                button.setText(title);
-
-                // Set an OnClickListener to read the title and text aloud
-                button.setOnClickListener(v -> {
-                    // Use Text-to-Speech or any other method to read aloud the title and text
-                    String message = title + " " + text;
-                    // Example Toast for demo purpose, replace with Text-to-Speech code
-                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
-                });
-
-                // Add the button to the layout
-                layout.addView(button);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    @Override
+    protected void onDestroy() {
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
         }
+        super.onDestroy();
     }
 }
