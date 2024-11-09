@@ -4,6 +4,7 @@ import com.farfler.object.redditPost;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
@@ -13,7 +14,7 @@ import java.util.List;
 
 public class ApiService {
 
-    public List<redditPost> getTextFromApi(String urlString) {
+    public redditPost getTextFromApi(String urlString) {
         try {
             // URL to fetch the JSON from the API
             HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
@@ -25,17 +26,17 @@ public class ApiService {
             InputStream inputStream = connection.getInputStream();
             InputStreamReader reader = new InputStreamReader(inputStream);
 
-            // Convert the InputStream to a RedditListing object using GSON
+            // Convert the InputStream to a list of redditPost objects using GSON
             Gson gson = new Gson();
-            Type redditPostListType = new TypeToken<List<redditPost>>() {}.getType();
-            List<redditPost> redditPosts = gson.fromJson(reader, redditPostListType);
+            redditPost redditPost = gson.fromJson(reader, redditPost.class);
+
 
             // Close the reader and connection
             reader.close();
             connection.disconnect();
 
             // Return the list of children (posts)
-            return redditPosts;
+            return redditPost;
 
         } catch (Exception e) {
             e.printStackTrace();

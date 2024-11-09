@@ -2,6 +2,7 @@ package com.farfler;
 
 import android.os.Bundle;
 
+import com.farfler.object.redditPost;
 import com.farfler.service.ApiService;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -33,6 +34,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,31 +42,6 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     private TextToSpeech textToSpeech;
-
-    private final String jsonString = "{\n" +
-            "  \"kind\": \"Listing\",\n" +
-            "  \"data\": {\n" +
-            "    \"children\": [\n" +
-            "      {\n" +
-            "        \"kind\": \"t3\",\n" +
-            "        \"data\": {\n" +
-            "          \"title\": \"Created a web app to transfer subreddit subscriptions across accounts\",\n" +
-            "          \"author\": \"SubTransfer\",\n" +
-            "          \"selftext\": \"It's called SubTransfer and it's a very simple app to carry over your subscriptions...\"\n" +
-            "        }\n" +
-            "      },\n" +
-            "      {\n" +
-            "        \"kind\": \"t3\",\n" +
-            "        \"data\": {\n" +
-            "          \"title\": \"Inconsistency with unsaving using PRAW\",\n" +
-            "          \"author\": \"chaosboy229\",\n" +
-            "          \"selftext\": \"Hi peeps, I'm trying to unsave a large number of my Reddit posts using the PRAW...\"\n" +
-            "        }\n" +
-            "      }\n" +
-            "    ]\n" +
-            "  }\n" +
-            "}";
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,9 +51,15 @@ public class MainActivity extends AppCompatActivity {
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.setLanguage(Locale.US);
-                ApiService apiService = new ApiService();
-                apiService.getTextFromApi("https://www.reddit.com/r/blind/top.json?t=month&limit=3&after=t3_1gkinlx");
-                parseAndSpeakJSON(jsonString);
+                ExecutorService executorService = Executors.newSingleThreadExecutor();
+                executorService.execute(() -> {
+                    ApiService apiService = new ApiService();
+                    redditPost redditPost = apiService.getTextFromApi("https://www.reddit.com/r/blind/top.json?t=month&limit=1");
+                    if (redditPost != null) {
+                        String selftext = redditPost.getData().getChildren().get(0).getData().getSelftext();
+                        runOnUiThread(() -> speakContent(selftext));
+                    }
+                });
             } else {
                 Toast.makeText(this, "TextToSpeech Initialization Failed", Toast.LENGTH_SHORT).show();
             }
@@ -105,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
                         .append("Content: ").append(selftext).append(".\n\n");
             }
 
-            speakContent(contentToSpeak.toString());
+            speakContent(jsonString);
 
         } catch (JSONException e) {
             Log.e("JSONError", "Failed to parse JSON", e);
